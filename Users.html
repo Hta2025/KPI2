@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إدارة المستخدمين - منصة مؤشرات الأداء</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background-color: #f0f2f5; }
+    .header { background: linear-gradient(to right, #8E2DE2 0%, #4A00E0 100%); }
+  </style>
+  <script>
+    const appUrl = "<?= appUrl ?>";
+  </script>
+</head>
+<body class="font-sans">
+  <header class="header text-white p-4 shadow-lg">
+    <div class="container mx-auto flex justify-between items-center">
+      <h1 class="text-2xl font-bold"><i class="fas fa-users-cog ml-2"></i>إدارة المستخدمين</h1>
+      <button onclick="window.location.href=appUrl + '?page=main'" class="bg-white text-purple-500 font-bold py-2 px-4 rounded-full hover:bg-gray-100 transition duration-300">
+        <i class="fas fa-arrow-right ml-2"></i>العودة للرئيسية
+      </button>
+    </div>
+  </header>
+  <main class="container mx-auto p-6">
+    <div id="usersMessage"></div>
+    <form id="userForm" class="bg-white rounded-lg shadow-md p-6 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div><label class="block mb-2 font-semibold text-gray-700">البريد الإلكتروني</label><input id="userEmail" type="email" class="border rounded px-2 py-1 w-full"></div>
+      
+      <!-- --- تم حذف حقل كلمة المرور للأمان --- -->
+      <!-- <div><label class="block mb-2 font-semibold text-gray-700">كلمة المرور</label><input id="userPassword" type="text" class="border rounded px-2 py-1 w-full"></div> -->
+      
+      <div><label class="block mb-2 font-semibold text-gray-700">القسم</label><input id="userDepartment" class="border rounded px-2 py-1 w-full"></div>
+      <div><label class="block mb-2 font-semibold text-gray-700">الدور</label><select id="userRole" class="border rounded px-2 py-1 w-full"><option value="admin">أدمن</option><option value="user">رئيس قسم/مستخدم</option></select></div>
+      <input type="hidden" id="oldUser">
+      <div class="col-span-2 flex gap-5"><button type="button" onclick="saveUser()" class="bg-purple-600 text-white rounded px-8 py-2 hover:bg-purple-700"><i class="fas fa-save ml-2"></i>حفظ/تعديل</button><button type="reset" onclick="clearUserForm()" class="bg-gray-200 rounded px-8 py-2"><i class="fas fa-times ml-2"></i>إلغاء</button></div>
+    </form>
+    <div class="bg-white rounded-lg shadow-md p-6 overflow-x-auto">
+      <table class="table-auto w-full border border-gray-300"><thead><tr class="bg-gray-100"><th class="border border-gray-300 px-4 py-2">البريد</th><th class="border border-gray-300 px-4 py-2">القسم</th><th class="border border-gray-300 px-4 py-2">الدور</th><th class="border border-gray-300 px-4 py-2">إجراءات</th></tr></thead><tbody id="usersTableBody"></tbody></table>
+    </div>
+  </main>
+  <script>
+    function showMessage(elementId, message, isError = false) { const msgDiv = document.getElementById(elementId); const bgColor = isError ? 'bg-red-100 border-red-400 text-red-700' : 'bg-green-100 border-green-400 text-green-700'; msgDiv.innerHTML = `<div class="${bgColor} border px-4 py-3 rounded relative" role="alert">${message}</div>`; setTimeout(() => { msgDiv.innerHTML = ''; }, 5000); }
+    function loadUsers() { google.script.run.withSuccessHandler(users => { const tbody = document.getElementById('usersTableBody'); tbody.innerHTML = ''; users.forEach(user => { const row = `<tr><td class="border border-gray-300 px-4 py-2">${user.email}</td><td class="border border-gray-300 px-4 py-2">${user.department}</td><td class="border border-gray-300 px-4 py-2">${user.role === 'admin' ? 'أدمن' : 'مستخدم'}</td><td class="border border-gray-300 px-4 py-2 text-center"><button onclick="editUser('${user.email}')" class="bg-yellow-500 text-white px-3 py-1 rounded ml-2"><i class="fas fa-edit"></i></button><button onclick="deleteUser('${user.email}')" class="bg-red-600 text-white px-3 py-1 rounded"><i class="fas fa-trash"></i></button></td></tr>`; tbody.innerHTML += row; }); }).getAllUsers(); }
+    
+    // --- تم تحديث دالة الحفظ لإزالة كلمة المرور ---
+    function saveUser() { 
+      const data = { 
+        email: document.getElementById('userEmail').value, 
+        // password: document.getElementById('userPassword').value, // تم حذف هذا السطر
+        department: document.getElementById('userDepartment').value, 
+        role: document.getElementById('userRole').value, 
+        oldEmail: document.getElementById('oldUser').value 
+      }; 
+      if (!data.email || !data.department) { // تم إزالة التحقق من كلمة المرور
+        showMessage('usersMessage', 'البريد الإلكتروني والقسم مطلوبان.', true); 
+        return; 
+      } 
+      google.script.run.withSuccessHandler(() => { showMessage('usersMessage', 'تم حفظ المستخدم بنجاح!'); clearUserForm(); loadUsers(); }).withFailureHandler(err => { showMessage('usersMessage', 'فشل الحفظ: ' + err.message, true); }).saveUser(data); 
+    }
+    
+    function deleteUser(email) { if (!confirm(`هل أنت متأكد من حذف المستخدم "${email}"؟`)) return; google.script.run.withSuccessHandler(() => { showMessage('usersMessage', 'تم حذف المستخدم بنجاح.'); loadUsers(); }).deleteUser(email); }
+    
+    // --- تم تحديث دالة التعديل لإزالة كلمة المرور ---
+    function editUser(email) { 
+      google.script.run.withSuccessHandler(user => { 
+        document.getElementById('userEmail').value = user.email; 
+        // document.getElementById('userPassword').value = user.password; // تم حذف هذا السطر
+        document.getElementById('userDepartment').value = user.department; 
+        document.getElementById('userRole').value = user.role; 
+        document.getElementById('oldUser').value = user.email; 
+      }).getUserByEmail(email); 
+    }
+    
+    function clearUserForm() { document.getElementById('userForm').reset(); document.getElementById('oldUser').value = ''; }
+    window.onload = loadUsers;
+  </script>
+</body>
+</html>

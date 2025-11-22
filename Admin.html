@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>منصة مؤشرات الأداء</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+    .card:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+  </style>
+  <script>
+    var appUrl = "<?= ScriptApp.getService().getUrl() ?>";
+  </script>
+</head>
+<body class="min-h-screen flex items-center justify-center p-5 font-sans">
+  <div class="container mx-auto max-w-6xl">
+    <header class="text-center mb-12">
+      <div class="bg-white bg-opacity-90 rounded-2xl shadow-2xl p-8">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-2">منصة مؤشرات الأداء</h1>
+        <p class="text-xl text-gray-600">المستشفى الجامعي الأردني</p>
+      </div>
+    </header>
+    <main class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div class="card bg-white rounded-xl shadow-xl p-8 text-center cursor-pointer" onclick="navigateTo('dashboard')">
+        <div class="text-blue-500 text-6xl mb-4"><i class="fas fa-chart-line"></i></div>
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">لوحة النتائج</h2>
+        <p class="text-gray-600">إدخال وعرض نتائج المؤشرات والرسوم البيانية</p>
+      </div>
+      <div class="card bg-white rounded-xl shadow-xl p-8 text-center cursor-pointer" onclick="navigateTo('admin')">
+        <div class="text-green-500 text-6xl mb-4"><i class="fas fa-cogs"></i></div>
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">إدارة المؤشرات</h2>
+        <p class="text-gray-600">إضافة وتعديل وحذف مؤشرات الأداء</p>
+      </div>
+      <div class="card bg-white rounded-xl shadow-xl p-8 text-center cursor-pointer" onclick="navigateTo('users')">
+        <div class="text-purple-500 text-6xl mb-4"><i class="fas fa-users-cog"></i></div>
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">إدارة المستخدمين</h2>
+        <p class="text-gray-600">إدارة صلاحيات وحسابات المستخدمين</p>
+      </div>
+    </main>
+    <footer class="text-center mt-12">
+      <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-8 rounded-full transition duration-300">
+        <i class="fas fa-sign-out-alt ml-2"></i> تسجيل الخروج
+      </button>
+    </footer>
+  </div>
+  <script>
+    function navigateTo(page) { 
+      window.location.href = appUrl + '?page=' + page; 
+    }
+    function logout() { 
+      if (confirm('هل أنت متأكد من تسجيل الخروج؟')) { 
+        google.script.run
+          .withSuccessHandler(function() {
+            window.location.href = 'https://accounts.google.com/Logout';
+          })
+          .withFailureHandler(function(error) {
+            console.error('Error:', error);
+            alert('حدث خطأ أثناء تسجيل الخروج');
+          })
+          .doLogout(); 
+      } 
+    }
+  </script>
+</body>
+</html>

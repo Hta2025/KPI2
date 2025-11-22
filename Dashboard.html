@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - KPI Platform</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background: #f0f4f8; min-height: 100vh; }
+    .loading { display: none; }
+  </style>
+</head>
+<body class="min-h-screen p-4 font-sans">
+  <!-- Loading -->
+  <div id="loading" class="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-50">
+    <div class="text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+      <p class="mt-4 text-gray-700">Loading...</p>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+      <h3 class="text-lg font-bold mb-4">Edit Result</h3>
+      <form id="editForm">
+        <input type="hidden" id="editRowIndex">
+        <div class="space-y-3">
+          <div>
+            <label class="block text-gray-700 text-sm mb-1">Month:</label>
+            <input type="month" id="editMonth" class="w-full p-2 border rounded" required>
+          </div>
+          <div>
+            <label class="block text-gray-700 text-sm mb-1">Value:</label>
+            <input type="number" step="0.01" id="editValue" class="w-full p-2 border rounded">
+          </div>
+          <div>
+            <label class="block text-gray-700 text-sm mb-1">Numerator:</label>
+            <input type="number" step="0.01" id="editNumerator" class="w-full p-2 border rounded">
+          </div>
+          <div>
+            <label class="block text-gray-700 text-sm mb-1">Denominator:</label>
+            <input type="number" step="0.01" id="editDenominator" class="w-full p-2 border rounded">
+          </div>
+          <div>
+            <label class="block text-gray-700 text-sm mb-1">Result:</label>
+            <input type="number" step="0.01" id="editResult" class="w-full p-2 border rounded" readonly>
+          </div>
+          <div>
+            <label class="block text-gray-700 text-sm mb-1">Notes:</label>
+            <textarea id="editNote" rows="3" class="w-full p-2 border rounded"></textarea>
+          </div>
+        </div>
+        <div class="flex justify-end space-x-2 mt-4">
+          <button type="button" onclick="closeEditModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+            Cancel
+          </button>
+          <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+            Update
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="container mx-auto max-w-7xl">
+    <!-- Header -->
+    <header class="text-center mb-6">
+      <div class="bg-white rounded-xl shadow-lg p-4">
+        <div class="flex justify-between items-center">
+          <button onclick="goBack()" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded transition">
+            <i class="fas fa-arrow-right ml-2"></i> Back
+          </button>
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">Results Dashboard</h1>
+            <p class="text-gray-600">KPI Performance</p>
+          </div>
+          <div id="userInfo" class="text-sm text-gray-600"></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <!-- Sidebar -->
+      <div class="lg:col-span-1">
+        <div class="bg-white rounded-xl shadow-lg p-4">
+          <h2 class="text-lg font-bold text-gray-800 mb-3">Select Indicator</h2>
+          
+          <div class="mb-3">
+            <label class="block text-gray-700 mb-1">Department:</label>
+            <select id="departmentSelect" onchange="loadDepartmentIndicators()" class="w-full p-2 border rounded">
+              <option value="">Select Department</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="block text-gray-700 mb-1">Indicator:</label>
+            <select id="indicatorSelect" onchange="loadIndicatorData()" class="w-full p-2 border rounded">
+              <option value="">Select Indicator</option>
+            </select>
+          </div>
+
+          <!-- Date Range -->
+          <div class="mb-4 p-3 bg-blue-50 rounded">
+            <h3 class="font-bold text-gray-800 mb-2">Date Range</h3>
+            <div class="space-y-2">
+              <div>
+                <label class="block text-gray-700 text-sm">From:</label>
+                <input type="month" id="startDate" class="w-full p-1 border rounded text-sm">
+              </div>
+              <div>
+                <label class="block text-gray-700 text-sm">To:</label>
+                <input type="month" id="endDate" class="w-full p-1 border rounded text-sm">
+              </div>
+              <button onclick="applyDateFilter()" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-sm">
+                Apply Filter
+              </button>
+            </div>
+          </div>
+
+          <!-- Add Result -->
+          <div class="mt-4">
+            <h3 class="font-bold text-gray-800 mb-2">Add Result</h3>
+            <form id="resultForm" onsubmit="saveNewResult(event)">
+              <div class="space-y-2">
+                <div>
+                  <label class="block text-gray-700 text-sm">Month:</label>
+                  <input type="month" id="monthInput" required class="w-full p-1 border rounded text-sm" onchange="checkMonthDuplicate()">
+                  <div id="duplicateWarning" class="hidden text-red-600 text-xs mt-1"></div>
+                </div>
+                <div>
+                  <label class="block text-gray-700 text-sm">Value:</label>
+                  <input type="number" step="0.01" id="valueInput" class="w-full p-1 border rounded text-sm">
+                </div>
+                <div>
+                  <label class="block text-gray-700 text-sm">Numerator:</label>
+                  <input type="number" step="0.01" id="numeratorInput" class="w-full p-1 border rounded text-sm" oninput="calculateResult()">
+                </div>
+                <div>
+                  <label class="block text-gray-700 text-sm">Denominator:</label>
+                  <input type="number" step="0.01" id="denominatorInput" class="w-full p-1 border rounded text-sm" oninput="calculateResult()">
+                </div>
+                <div>
+                  <label class="block text-gray-700 text-sm">Result:</label>
+                  <input type="number" step="0.01" id="resultInput" class="w-full p-1 border rounded text-sm" readonly>
+                </div>
+                <div>
+                  <label class="block text-gray-700 text-sm">Notes:</label>
+                  <textarea id="noteInput" rows="2" class="w-full p-1 border rounded text-sm"></textarea>
+                </div>
+                <button type="submit" id="submitButton" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded">
+                  Save Result
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="lg:col-span-3">
+        <!-- Indicator Info -->
+        <div id="indicatorInfo" class="bg-white rounded-xl shadow-lg p-4 mb-4 hidden">
+          <div class="flex justify-between items-start">
+            <div>
+              <h2 class="text-xl font-bold text-gray-800 mb-1" id="indicatorName"></h2>
+              <p class="text-gray-600"><strong>Dept:</strong> <span id="infoDepartment"></span></p>
+              <p class="text-gray-600" id="infoDescription"></p>
+            </div>
+            <div class="bg-gray-50 p-3 rounded min-w-32">
+              <h3 class="font-bold text-gray-800 mb-1">Targets</h3>
+              <p class="text-sm"><span class="text-green-600">Target:</span> <span id="infoTarget" class="font-bold">-</span></p>
+              <p class="text-sm"><span class="text-blue-600">Benchmark:</span> <span id="infoBenchmark" class="font-bold">-</span></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="bg-white rounded-xl shadow-lg p-4 mb-4">
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-lg font-bold text-gray-800">Performance Chart</h2>
+            <button onclick="exportChart()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
+              Export Chart
+            </button>
+          </div>
+          <div class="h-64">
+            <canvas id="resultsChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Results Table -->
+        <div class="bg-white rounded-xl shadow-lg p-4">
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-lg font-bold text-gray-800">Results</h2>
+            <div class="space-x-1">
+              <button onclick="exportToExcel()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">
+                Export Excel
+              </button>
+              <button onclick="exportToPDF()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                Export PDF
+              </button>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-50">
+                  <th class="p-2 border">Month</th>
+                  <th class="p-2 border">Value</th>
+                  <th class="p-2 border">Numerator</th>
+                  <th class="p-2 border">Denominator</th>
+                  <th class="p-2 border">Result</th>
+                  <th class="p-2 border">Notes</th>
+                  <th class="p-2 border">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="resultsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentChart = null;
+    let currentIndicator = null;
+    let currentResults = [];
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Dashboard initialized');
+      loadInitialData();
+      loadUserInfo();
+      
+      // Set default date range (last 6 months)
+      const end = new Date();
+      const start = new Date();
+      start.setMonth(start.getMonth() - 5);
+      
+      document.getElementById('startDate').value = start.toISOString().slice(0, 7);
+      document.getElementById('endDate').value = end.toISOString().slice(0, 7);
+
+      // Setup edit form
+      document.getElementById('editForm').addEventListener('submit', updateExistingResult);
+      
+      // Setup calculation for edit form
+      document.getElementById('editNumerator').addEventListener('input', calculateEditResult);
+      document.getElementById('editDenominator').addEventListener('input', calculateEditResult);
+    });
+
+    function showLoading() { 
+      document.getElementById('loading').style.display = 'flex'; 
+    }
+    
+    function hideLoading() { 
+      document.getElementById('loading').style.display = 'none'; 
+    }
+    
+    function goBack() { 
+      window.location.href = '<?= appUrl ?>'; 
+    }
+
+    function loadUserInfo() {
+      google.script.run
+        .withSuccessHandler(function(userInfo) {
+          document.getElementById('userInfo').innerHTML = userInfo.email + ' - ' + userInfo.role;
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error loading user info:', error);
+        })
+        .getCurrentUserRole();
+    }
+
+    function loadInitialData() {
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(departments) {
+          const select = document.getElementById('departmentSelect');
+          select.innerHTML = '<option value="">Select Department</option>';
+          departments.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept;
+            option.textContent = dept;
+            select.appendChild(option);
+          });
+          hideLoading();
+        })
+        .withFailureHandler(function(error) {
+          alert('Error loading departments: ' + error.message);
+          hideLoading();
+        })
+        .getDepartments();
+    }
+
+    function loadDepartmentIndicators() {
+      const department = document.getElementById('departmentSelect').value;
+      if (!department) return;
+
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(indicators) {
+          const select = document.getElementById('indicatorSelect');
+          select.innerHTML = '<option value="">Select Indicator</option>';
+          indicators.forEach(ind => {
+            const option = document.createElement('option');
+            option.value = ind.name;
+            option.textContent = ind.name;
+            select.appendChild(option);
+          });
+          hideLoading();
+        })
+        .withFailureHandler(function(error) {
+          alert('Error loading indicators: ' + error.message);
+          hideLoading();
+        })
+        .getIndicatorsByDepartment(department);
+    }
+
+    function loadIndicatorData() {
+      const indicatorName = document.getElementById('indicatorSelect').value;
+      if (!indicatorName) {
+        alert('Please select an indicator first');
+        return;
+      }
+
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(indicatorData) {
+          if (!indicatorData || !indicatorData.indicator) {
+            alert('Indicator not found');
+            hideLoading();
+            return;
+          }
+          
+          currentIndicator = indicatorData.indicator;
+          displayIndicatorInfo(indicatorData.indicator);
+          loadResultsWithFilter();
+          hideLoading();
+        })
+        .withFailureHandler(function(error) {
+          alert('Error loading indicator: ' + error.message);
+          hideLoading();
+        })
+        .getIndicatorWithTargets(indicatorName);
+    }
+
+    function loadResultsWithFilter() {
+      if (!currentIndicator) {
+        alert('Please select an indicator first');
+        return;
+      }
+      
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(results) {
+          currentResults = results;
+          displayResultsTable(results);
+          createChart(results);
+          hideLoading();
+        })
+        .withFailureHandler(function(error) {
+          alert('Error loading results: ' + error.message);
+          hideLoading();
+        })
+        .getResultsWithDateRange(currentIndicator.department, currentIndicator.name, startDate, endDate);
+    }
+
+    function applyDateFilter() {
+      if (!currentIndicator) {
+        alert('Please select an indicator first');
+        return;
+      }
+      loadResultsWithFilter();
+    }
+
+    function displayIndicatorInfo(indicator) {
+      const infoDiv = document.getElementById('indicatorInfo');
+      document.getElementById('indicatorName').textContent = indicator.name;
+      document.getElementById('infoDepartment').textContent = indicator.department;
+      document.getElementById('infoDescription').textContent = indicator.description || 'No description';
+      document.getElementById('infoTarget').textContent = indicator.target || '-';
+      document.getElementById('infoBenchmark').textContent = indicator.benchmark || '-';
+      infoDiv.classList.remove('hidden');
+    }
+
+    function displayResultsTable(results) {
+      const tbody = document.getElementById('resultsTable');
+      tbody.innerHTML = '';
+
+      if (results.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="p-2 text-center text-gray-500">No results found</td></tr>';
+        return;
+      }
+
+      results.forEach(result => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        
+        const displayMonth = result.monthFormatted || result.month;
+        
+        let resultDisplay = '-';
+        if (result.result) {
+          const resultValue = parseFloat(result.result);
+          if (!isNaN(resultValue)) {
+            resultDisplay = resultValue.toFixed(2) + '%';
+          }
+        }
+        
+        row.innerHTML = `
+          <td class="p-2 border">${displayMonth}</td>
+          <td class="p-2 border">${result.value || '-'}</td>
+          <td class="p-2 border">${result.numerator || '-'}</td>
+          <td class="p-2 border">${result.denominator || '-'}</td>
+          <td class="p-2 border font-bold">${resultDisplay}</td>
+          <td class="p-2 border">${result.note || '-'}</td>
+          <td class="p-2 border">
+            <div class="flex space-x-1 justify-center">
+              <button onclick="editResult(${result.rowIndex}, '${result.month}', '${result.value || ''}', '${result.numerator || ''}', '${result.denominator || ''}', '${result.result || ''}', '${(result.note || '').replace(/'/g, "\\'")}')" 
+                      class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button onclick="deleteResult(${result.rowIndex}, '${displayMonth}')" 
+                      class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // حساب النتيجة تلقائياً
+    function calculateResult() {
+      const numerator = parseFloat(document.getElementById('numeratorInput').value);
+      const denominator = parseFloat(document.getElementById('denominatorInput').value);
+      const resultInput = document.getElementById('resultInput');
+      
+      if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+        const result = (numerator / denominator) * 100;
+        resultInput.value = result.toFixed(2);
+      } else {
+        resultInput.value = '';
+      }
+    }
+
+    function calculateEditResult() {
+      const numerator = parseFloat(document.getElementById('editNumerator').value);
+      const denominator = parseFloat(document.getElementById('editDenominator').value);
+      const resultInput = document.getElementById('editResult');
+      
+      if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+        const result = (numerator / denominator) * 100;
+        resultInput.value = result.toFixed(2);
+      } else {
+        resultInput.value = '';
+      }
+    }
+
+    // التحقق من الازدواجية
+    function checkMonthDuplicate() {
+      const department = document.getElementById('departmentSelect').value;
+      const indicator = document.getElementById('indicatorSelect').value;
+      const month = document.getElementById('monthInput').value;
+      
+      if (!department || !indicator || !month) return;
+      
+      google.script.run
+        .withSuccessHandler(function(isDuplicate) {
+          const warningDiv = document.getElementById('duplicateWarning');
+          const submitButton = document.getElementById('submitButton');
+          const monthInput = document.getElementById('monthInput');
+          
+          if (isDuplicate) {
+            warningDiv.textContent = 'Result already exists for this month. Please update existing result.';
+            warningDiv.classList.remove('hidden');
+            monthInput.classList.add('border-red-500');
+            submitButton.disabled = true;
+            submitButton.classList.add('bg-gray-400');
+          } else {
+            warningDiv.classList.add('hidden');
+            monthInput.classList.remove('border-red-500');
+            submitButton.disabled = false;
+            submitButton.classList.remove('bg-gray-400');
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error checking duplicate:', error);
+        })
+        .checkDuplicateResult(department, indicator, month);
+    }
+
+    function editResult(rowIndex, month, value, numerator, denominator, result, note) {
+      document.getElementById('editRowIndex').value = rowIndex;
+      document.getElementById('editMonth').value = month;
+      document.getElementById('editValue').value = value;
+      document.getElementById('editNumerator').value = numerator;
+      document.getElementById('editDenominator').value = denominator;
+      document.getElementById('editResult').value = result;
+      document.getElementById('editNote').value = note;
+      
+      document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.add('hidden');
+    }
+
+    function updateExistingResult(event) {
+      event.preventDefault();
+      
+      const formData = {
+        department: currentIndicator.department,
+        indicator: currentIndicator.name,
+        month: document.getElementById('editMonth').value,
+        value: document.getElementById('editValue').value,
+        numerator: document.getElementById('editNumerator').value,
+        denominator: document.getElementById('editDenominator').value,
+        result: document.getElementById('editResult').value,
+        note: document.getElementById('editNote').value
+      };
+
+      const rowIndex = parseInt(document.getElementById('editRowIndex').value);
+
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(response) {
+          alert(response.message);
+          closeEditModal();
+          loadResultsWithFilter();
+          hideLoading();
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+          hideLoading();
+        })
+        .updateResult(rowIndex, formData);
+    }
+
+    function deleteResult(rowIndex, month) {
+      if (!confirm(`Are you sure you want to delete the result for ${month}?`)) {
+        return;
+      }
+
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(response) {
+          alert(response.message);
+          loadResultsWithFilter();
+          hideLoading();
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+          hideLoading();
+        })
+        .deleteResult(rowIndex);
+    }
+
+    function createChart(results) {
+      const ctx = document.getElementById('resultsChart').getContext('2d');
+      if (currentChart) {
+        currentChart.destroy();
+      }
+
+      if (results.length === 0) {
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#999';
+        ctx.textAlign = 'center';
+        ctx.fillText('No data available for chart', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        return;
+      }
+
+      const labels = results.map(r => r.monthFormatted || r.month);
+      const dataValues = results.map(r => parseFloat(r.result) || 0);
+
+      currentChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: currentIndicator.name,
+            data: dataValues,
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { 
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function saveNewResult(event) {
+      event.preventDefault();
+      const department = document.getElementById('departmentSelect').value;
+      const indicator = document.getElementById('indicatorSelect').value;
+      if (!department || !indicator) {
+        alert('Please select department and indicator first');
+        return;
+      }
+
+      const formData = {
+        department: department,
+        indicator: indicator,
+        month: document.getElementById('monthInput').value,
+        value: document.getElementById('valueInput').value,
+        numerator: document.getElementById('numeratorInput').value,
+        denominator: document.getElementById('denominatorInput').value,
+        result: document.getElementById('resultInput').value,
+        note: document.getElementById('noteInput').value
+      };
+
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(response) {
+          alert(response.message);
+          document.getElementById('resultForm').reset();
+          document.getElementById('duplicateWarning').classList.add('hidden');
+          loadResultsWithFilter();
+          hideLoading();
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+          hideLoading();
+        })
+        .saveResult(formData);
+    }
+
+    function exportToExcel() {
+      if (!currentIndicator) {
+        alert('Please select an indicator first');
+        return;
+      }
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(url) {
+          window.open(url, '_blank');
+          hideLoading();
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+          hideLoading();
+        })
+        .exportIndicatorResultsToExcel(currentIndicator.name);
+    }
+
+    function exportToPDF() {
+      if (!currentIndicator) {
+        alert('Please select an indicator first');
+        return;
+      }
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(url) {
+          window.open(url, '_blank');
+          hideLoading();
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+          hideLoading();
+        })
+        .sendIndicatorReportEmail(currentIndicator.name);
+    }
+
+    function exportChart() {
+      if (!currentChart) {
+        alert('No chart available to export');
+        return;
+      }
+      const link = document.createElement('a');
+      link.download = `chart-${currentIndicator.name}.png`;
+      link.href = document.getElementById('resultsChart').toDataURL();
+      link.click();
+    }
+
+    function testConnection() {
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          alert('Connection test: ' + result.status);
+          hideLoading();
+        })
+        .withFailureHandler(function(error) {
+          alert('Connection test failed: ' + error.message);
+          hideLoading();
+        })
+        .testConnection();
+    }
+  </script>
+</body>
+</html>
